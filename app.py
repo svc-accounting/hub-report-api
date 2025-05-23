@@ -1,10 +1,25 @@
-from flask import Flask, request, send_file
+from flask import Flask, request, send_file, render_template_string
 import pandas as pd
 import os
 
 app = Flask(__name__)
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+@app.route('/')
+def index():
+    return "<h2>HUB Report Generator API</h2><p>Go to <a href='/upload'>/upload</a> to use the form.</p>"
+
+@app.route('/upload', methods=['GET'])
+def upload_form():
+    return render_template_string("""
+    <h2>Upload Files to Generate HUB Report</h2>
+    <form method="POST" action="/generate-hub" enctype="multipart/form-data">
+      OQ File: <input type="file" name="expenditure"><br><br>
+      Citibank File: <input type="file" name="citibank"><br><br>
+      <input type="submit" value="Generate HUB Report">
+    </form>
+    """)
 
 @app.route('/generate-hub', methods=['POST'])
 def generate_hub():
@@ -16,7 +31,6 @@ def generate_hub():
     expenditure.save(exp_path)
     citibank.save(cit_path)
 
-    # Load data
     df1 = pd.read_excel(exp_path)
     df2 = pd.read_excel(cit_path)
 
@@ -36,4 +50,3 @@ def generate_hub():
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=10000)
-
