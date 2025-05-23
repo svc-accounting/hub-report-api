@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, send_file
 import pandas as pd
 import os
 
@@ -6,42 +6,33 @@ app = Flask(__name__)
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-def format_row(agency, vid, name, obj_code, amount, record_type):
-    return f"{str(agency).zfill(5)}{str(vid)[:11].ljust(11)}{str(name).upper().ljust(20)[:20]}{str(obj_code).zfill(4)}{f'{float(amount):012.2f}'.replace('.', '')}{record_type}"
-
 @app.route('/generate-hub', methods=['POST'])
 def generate_hub():
-    files = request.files
-    oq_file = files.get('expenditure')
-    citi_file = files.get('citibank')
+    expenditure = request.files['expenditure']
+    citibank = request.files['citibank']
 
-    if not oq_file or not citi_file:
-        return jsonify({'error': 'Both files (expenditure, citibank) are required'}), 400
+    exp_path = os.path.join(UPLOAD_DIR, expenditure.filename)
+    cit_path = os.path.join(UPLOAD_DIR, citibank.filename)
+    expenditure.save(exp_path)
+    citibank.save(cit_path)
 
-    oq_path = os.path.join(UPLOAD_DIR, oq_file.filename)
-    citi_path = os.path.join(UPLOAD_DIR, citi_file.filename)
-    oq_file.save(oq_path)
-    citi_file.save(citi_path)
+    # Load data
+    df1 = pd.read_excel(exp_path)
+    df2 = pd.read_excel(cit_path)
 
-    oq_df = pd.read_excel(oq_path)
-    citi_df = pd.read_excel(citi_path)
+    def format_row(agency, vid, name, obj_code, amount, record_type):
+        return f"{str(agency).zfill(5)}{str(vid)[:11].ljust(11)}{str(name).upper().ljust(20)[:20]}{str(obj_code).zfill(4)}{f'{float(amount):012.2f}'.replace('.', '')}{record_type}"
 
-    def extract_records(df, record_type):
-        rows = []
-        for _, r in df.iterrows():
-            try:
-                rows.append(format_row("731", r["TINS No"], r["Short Name"], r["Object Code"], r["Total Paid Amount"], record_type))
-            except:
-                continue
-        return rows
+    def extract(df, rtype):
+        return [format_row("731", row["TINS No"], row["Short Name"], row["Object Code"], row["Total Paid Amount"], rtype) for _, row in df.iterrows()]
 
-    records = extract_records(oq_df, "N") + extract_records(citi_df, "H")
+    records = extract(df1, "N") + extract(df2, "H")
+
     output_file = os.path.join(UPLOAD_DIR, "731_FY25_SemiAnnual.txt")
-
     with open(output_file, "w") as f:
-        f.write('\n'.join(records))
+        f.write("\n".join(records))
 
-    return jsonify({'message': 'HUB report generated', 'file': output_file}), 200
+    return send_file(output_file, as_attachment=True)
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=10000)
