@@ -38,11 +38,11 @@ def generate_hub():
         return f"{str(agency).zfill(5)}{str(vid)[:11].ljust(11)}{str(name).upper().ljust(20)[:20]}{str(obj_code).zfill(4)}{f'{float(amount):012.2f}'.replace('.', '')}{record_type}"
 
     def extract(df, rtype):
-        return [format_row("731", row["TINS No"], row["Short Name"], row["Object Code"], row["Total Paid Amount"], rtype) for _, row in df.iterrows()]
+        return [format_row("714", row["TINS No"], row["Short Name"], row["Object Code"], row["Total Paid Amount"], rtype) for _, row in df.iterrows()]
 
     records = extract(df1, "N") + extract(df2, "H")
 
-    output_file = os.path.join(UPLOAD_DIR, "731_FY25_SemiAnnual.txt")
+    output_file = os.path.join(UPLOAD_DIR, "714_FY25_SemiAnnual.txt")
     with open(output_file, "w") as f:
         f.write("\n".join(records))
 
